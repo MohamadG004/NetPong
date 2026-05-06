@@ -24,6 +24,7 @@
  *   M         — Back to menu
  */
 
+#define _USE_MATH_DEFINES
 #include <SDL2/SDL.h>
 #include <algorithm>
 #include <cmath>
