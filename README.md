@@ -6,6 +6,12 @@ renderer and audio is generated procedurally in real time.
 
 ---
 
+## Game Preview
+
+![alt text](image.png)
+
+---
+
 ## Features
 
 | Feature | Details |
@@ -130,9 +136,3 @@ interpolation speed are tuned per difficulty:
 SDL2's audio callback fills a mono float32 buffer with the sum of up to
 four simultaneously active sine-wave beeps.  Each beep has its own frequency,
 volume, and linear decay envelope.  No audio files are needed.
-
----
-
-## License
-
-MIT — do whatever you like with it.
