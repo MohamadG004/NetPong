@@ -10,6 +10,8 @@ renderer and audio is generated procedurally in real time.
 
 ![alt text](image.png)
 
+![alt text](image-1.png)
+
 ---
 
 ## Features
@@ -41,7 +43,7 @@ renderer and audio is generated procedurally in real time.
 | `Esc` | Quit |
 
 ### In-game
-| Key | Player 1 (Left) | Player 2 / AI (Right) |
+| Key | Player 1 (Right) | Player 2 / AI (Left) |
 |---|---|---|
 | Move up | `W` | `↑` |
 | Move down | `S` | `↓` |
