@@ -506,7 +506,7 @@ static void drawMenu(SDL_Renderer* ren, const Game& g) {
         drawText(ren, entries[i].label, WIN_W/2, y + 4, 2, col, true);
     }
 
-    drawText(ren, "P1: W/S (right)   P2/AI: UP/DOWN (left)", WIN_W/2, WIN_H-40, 2, C_DIM, true);
+    drawText(ren, "1P: W/S or ARROWS   2P: left=W/S  right=ARROWS", WIN_W/2, WIN_H-40, 2, C_DIM, true);
 }
 
 // ─────────────────────────────────────────────
@@ -650,24 +650,31 @@ static void update(Game& g, float dt) {
     // ── paddle movement ──
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
 
-    // Player 1 (RIGHT paddle) — W / S
-    g.right.vy = 0.f;
-    if (keys[SDL_SCANCODE_W]) g.right.vy = -PADDLE_SPEED;
-    if (keys[SDL_SCANCODE_S]) g.right.vy =  PADDLE_SPEED;
-    g.right.y += g.right.vy * dt;
-    clampPaddle(g.right);
-
-    // AI / Player 2 (LEFT paddle) — UP / DOWN or AI
     if (g.mode == Mode::TWO_PLAYER) {
+        // 2-player: P2 (LEFT) = W/S, P1 (RIGHT) = UP/DOWN
         g.left.vy = 0.f;
-        if (keys[SDL_SCANCODE_UP])   g.left.vy = -PADDLE_SPEED;
-        if (keys[SDL_SCANCODE_DOWN]) g.left.vy =  PADDLE_SPEED;
+        if (keys[SDL_SCANCODE_W]) g.left.vy = -PADDLE_SPEED;
+        if (keys[SDL_SCANCODE_S]) g.left.vy =  PADDLE_SPEED;
         g.left.y += g.left.vy * dt;
+        clampPaddle(g.left);
+
+        g.right.vy = 0.f;
+        if (keys[SDL_SCANCODE_UP])   g.right.vy = -PADDLE_SPEED;
+        if (keys[SDL_SCANCODE_DOWN]) g.right.vy =  PADDLE_SPEED;
+        g.right.y += g.right.vy * dt;
+        clampPaddle(g.right);
     } else {
+        // 1-player: P1 (RIGHT) = W/S or UP/DOWN; AI controls LEFT
+        g.right.vy = 0.f;
+        if (keys[SDL_SCANCODE_W]    || keys[SDL_SCANCODE_UP])   g.right.vy = -PADDLE_SPEED;
+        if (keys[SDL_SCANCODE_S]    || keys[SDL_SCANCODE_DOWN]) g.right.vy =  PADDLE_SPEED;
+        g.right.y += g.right.vy * dt;
+        clampPaddle(g.right);
+
         g.updateAI(dt);
         g.left.y += g.left.vy * dt;
+        clampPaddle(g.left);
     }
-    clampPaddle(g.left);
 
     if (g.countDown > 0.f) return; // don't move ball yet
 
