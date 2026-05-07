@@ -8,7 +8,7 @@ renderer and audio is generated procedurally in real time.
 
 ## Game Preview
 
-![alt text](image.png)
+![alt text](NetPong/image.png)
 
 ---
 
