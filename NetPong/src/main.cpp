@@ -12,11 +12,11 @@
  *   - Frame-rate independent movement via delta-time
  *
  * Controls (2-player):
- *   Player 1 (left)  — W / S
- *   Player 2 (right) — UP / DOWN
+ *   Player 1 (right) — W / S
+ *   Player 2 (left)  — UP / DOWN
  *
  * Controls (1-player):
- *   Player 1 (left)  — W / S   (AI controls the right paddle)
+ *   Player 1 (right) — W / S   (AI controls the left paddle)
  *
  * General:
  *   ESC / P   — Pause
@@ -202,17 +202,11 @@ static void fillRect(SDL_Renderer* ren, float x, float y, float w, float h) {
 // ─────────────────────────────────────────────
 
 struct Font5x7 {
-    // Minimal 5×7 glyphs for 0-9, A-Z, a-z, and some punctuation
-    // Each char: 5 columns, each column is 7 bits (bit0=top)
     static const int W = 5, H = 7;
-
-    // We'll use a small hardcoded table for the characters we need
     struct Glyph { Uint8 cols[5]; };
-
     static Glyph get(char c);
 };
 
-// Glyph data (5 bytes per char, each byte = column bitmask, bit0=top row)
 static const Font5x7::Glyph GLYPHS[] = {
     // ' '=32
     {{0x00,0x00,0x00,0x00,0x00}},
@@ -220,8 +214,7 @@ static const Font5x7::Glyph GLYPHS[] = {
     {{0x00,0x00,0x5F,0x00,0x00}},
     // '"'=34
     {{0x00,0x07,0x00,0x07,0x00}},
-    // '#'=35 .. skip to digits
-    {{0x00,0x00,0x00,0x00,0x00}},
+    {{0x00,0x00,0x00,0x00,0x00}}, // #
     {{0x00,0x00,0x00,0x00,0x00}}, // $
     {{0x00,0x00,0x00,0x00,0x00}}, // %
     {{0x00,0x00,0x00,0x00,0x00}}, // &
@@ -376,10 +369,12 @@ struct Game {
     Mode       mode       = Mode::ONE_PLAYER;
     Difficulty diff       = Difficulty::MEDIUM;
 
+    // 'left'  = AI side  (1-player) or Player 2 (2-player)
+    // 'right' = Player 1 always
     Paddle     left, right;
     Ball       ball;
 
-    int        lastScorer = 0;    // 1 or 2
+    int        lastScorer = 0;    // 1=player1(right), 2=AI/P2(left)
     float      flashTimer = 0.f;
     float      countDown  = 0.f;  // pause before serve
     bool       serving    = true;
@@ -412,15 +407,17 @@ static void resetBallInto(Ball& b, int serverSide) {
 void Game::init(Mode m, Difficulty d) {
     mode = m; diff = d;
 
+    // Left paddle = AI (or P2 in 2-player)
     left.x      = PADDLE_MARGIN;
     left.y      = WIN_H/2.f - PADDLE_H/2.f;
     left.score  = 0;
-    left.color  = C_P1;
+    left.color  = C_P2;   // AI / P2 colour
 
+    // Right paddle = Player 1
     right.x     = WIN_W - PADDLE_MARGIN - PADDLE_W;
     right.y     = WIN_H/2.f - PADDLE_H/2.f;
     right.score = 0;
-    right.color = C_P2;
+    right.color = C_P1;   // Player colour
 
     resetBallInto(ball, 1);
     serving    = true;
@@ -433,12 +430,11 @@ void Game::init(Mode m, Difficulty d) {
 }
 
 // ─────────────────────────────────────────────
-//  AI logic
+//  AI logic — controls the LEFT paddle
 // ─────────────────────────────────────────────
 void Game::updateAI(float dt) {
     if (mode != Mode::ONE_PLAYER) return;
 
-    // update target lazily based on difficulty
     float reactionHz;
     float errorMag;
     switch (diff) {
@@ -447,12 +443,10 @@ void Game::updateAI(float dt) {
         case Difficulty::HARD:   reactionHz=6.f;  errorMag=10.f; break;
     }
 
-    // gradually move AI target toward ball + error
     float desiredY = ball.y - PADDLE_H/2.f + aiError;
     float alpha = 1.f - std::exp(-reactionHz * dt);
     aiTarget = aiTarget + (desiredY - aiTarget) * alpha;
 
-    // refresh error occasionally
     static float errorTimer = 0.f;
     errorTimer -= dt;
     if (errorTimer <= 0.f) {
@@ -460,11 +454,11 @@ void Game::updateAI(float dt) {
         errorTimer = frand(0.4f, 1.2f);
     }
 
-    // move paddle toward target
-    float centre = right.y + PADDLE_H/2.f;
+    // Move LEFT paddle toward target
+    float centre = left.y + PADDLE_H/2.f;
     float diff_  = (aiTarget + PADDLE_H/2.f) - centre;
     float spd    = std::min(std::abs(diff_) / dt, PADDLE_SPEED);
-    right.vy     = (diff_ > 0.f ? 1.f : -1.f) * spd;
+    left.vy      = (diff_ > 0.f ? 1.f : -1.f) * spd;
 }
 
 // ─────────────────────────────────────────────
@@ -487,7 +481,6 @@ static void drawMenu(SDL_Renderer* ren, const Game& g) {
     setColor(ren, C_BG);
     SDL_RenderClear(ren);
 
-    // Title
     std::string title = "PONG";
     drawText(ren, title, WIN_W/2, 80, 10, C_WHITE, true);
     drawText(ren, "Press ENTER to select", WIN_W/2, 190, 2, C_DIM, true);
@@ -505,37 +498,37 @@ static void drawMenu(SDL_Renderer* ren, const Game& g) {
         bool sel = (g.menuSel == i);
         Col col  = sel ? C_FLASH : entries[i].col;
         if (sel) {
-            // highlight bar
             setColor(ren, {30,30,50,255});
             SDL_Rect bar{ WIN_W/2 - 160, y - 8, 320, 36 };
             SDL_RenderFillRect(ren, &bar);
-            // arrow
             drawText(ren, ">", WIN_W/2 - 150, y + 3, 3, C_FLASH, false);
         }
         drawText(ren, entries[i].label, WIN_W/2, y + 4, 2, col, true);
     }
 
-    drawText(ren, "P1: W/S   P2/AI: UP/DOWN", WIN_W/2, WIN_H-40, 2, C_DIM, true);
+    drawText(ren, "P1: W/S (right)   P2/AI: UP/DOWN (left)", WIN_W/2, WIN_H-40, 2, C_DIM, true);
 }
 
 // ─────────────────────────────────────────────
 //  HUD
+//  Left side = AI / P2 score & label
+//  Right side = P1 score & label
 // ─────────────────────────────────────────────
 static void drawHUD(SDL_Renderer* ren, const Game& g) {
-    // scores
+    // AI / P2 score on the left
     drawText(ren, std::to_string(g.left.score),
-             WIN_W/2 - 60, 20, 7, C_P1, true);
+             WIN_W/2 - 60, 20, 7, C_P2, true);
+    // Player 1 score on the right
     drawText(ren, std::to_string(g.right.score),
-             WIN_W/2 + 60, 20, 7, C_P2, true);
+             WIN_W/2 + 60, 20, 7, C_P1, true);
 
-    // labels
-    drawText(ren, "P1", 60, 14, 2, C_DIM, true);
+    // Labels
     if (g.mode == Mode::ONE_PLAYER)
-        drawText(ren, "AI", WIN_W-60, 14, 2, C_DIM, true);
+        drawText(ren, "AI", 60, 14, 2, C_DIM, true);
     else
-        drawText(ren, "P2", WIN_W-60, 14, 2, C_DIM, true);
+        drawText(ren, "P2", 60, 14, 2, C_DIM, true);
+    drawText(ren, "P1", WIN_W-60, 14, 2, C_DIM, true);
 
-    // pause hint
     drawText(ren, "ESC=PAUSE", WIN_W/2, WIN_H - 18, 1, C_NET, true);
 }
 
@@ -565,12 +558,14 @@ static void drawGameOver(SDL_Renderer* ren, const Game& g) {
     SDL_RenderFillRect(ren, &full);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
 
-    bool p1wins = g.left.score >= WIN_SCORE;
-    std::string winner = p1wins ? "PLAYER 1 WINS!" : 
+    // Player 1 is on the right (right.score)
+    bool p1wins = g.right.score >= WIN_SCORE;
+    std::string winner = p1wins ? "PLAYER 1 WINS!" :
                          (g.mode == Mode::ONE_PLAYER ? "AI WINS!" : "PLAYER 2 WINS!");
     Col wCol = p1wins ? C_P1 : C_P2;
 
     drawText(ren, winner, WIN_W/2, WIN_H/2 - 60, 4, wCol, true);
+    // Display as AI/P2 score : P1 score
     drawText(ren, std::to_string(g.left.score) + " - " + std::to_string(g.right.score),
              WIN_W/2, WIN_H/2 - 5, 6, C_WHITE, true);
     drawText(ren, "R  -  PLAY AGAIN", WIN_W/2, WIN_H/2 + 60, 2, C_DIM, true);
@@ -610,13 +605,11 @@ static void render(SDL_Renderer* ren, const Game& g) {
 
     // Paddles with glow
     auto drawPaddle = [&](const Paddle& p) {
-        // glow
         SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(ren, p.color.r, p.color.g, p.color.b, 40);
         SDL_FRect glw{ p.x-4, p.y-4, PADDLE_W+8, PADDLE_H+8 };
         SDL_RenderFillRectF(ren, &glw);
         SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-        // body
         setColor(ren, p.color);
         fillRect(ren, p.x, p.y, PADDLE_W, PADDLE_H);
     };
@@ -634,7 +627,7 @@ static void render(SDL_Renderer* ren, const Game& g) {
         }
     }
 
-    if (g.state == GameState::PAUSED)   drawPause(ren);
+    if (g.state == GameState::PAUSED)    drawPause(ren);
     if (g.state == GameState::GAME_OVER) drawGameOver(ren, g);
 
     SDL_RenderPresent(ren);
@@ -650,40 +643,37 @@ static void clampPaddle(Paddle& p) {
 static void update(Game& g, float dt) {
     if (g.state != GameState::PLAYING) return;
 
-    // countdown before serve
     if (g.countDown > 0.f) {
         g.countDown -= dt;
-        // still allow paddle movement during countdown
     }
 
     // ── paddle movement ──
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
 
-    // Player 1 (left)
-    g.left.vy = 0.f;
-    if (keys[SDL_SCANCODE_W]) g.left.vy = -PADDLE_SPEED;
-    if (keys[SDL_SCANCODE_S]) g.left.vy =  PADDLE_SPEED;
-    g.left.y += g.left.vy * dt;
-    clampPaddle(g.left);
+    // Player 1 (RIGHT paddle) — W / S
+    g.right.vy = 0.f;
+    if (keys[SDL_SCANCODE_W]) g.right.vy = -PADDLE_SPEED;
+    if (keys[SDL_SCANCODE_S]) g.right.vy =  PADDLE_SPEED;
+    g.right.y += g.right.vy * dt;
+    clampPaddle(g.right);
 
-    // Player 2 / AI (right)
+    // AI / Player 2 (LEFT paddle) — UP / DOWN or AI
     if (g.mode == Mode::TWO_PLAYER) {
-        g.right.vy = 0.f;
-        if (keys[SDL_SCANCODE_UP])   g.right.vy = -PADDLE_SPEED;
-        if (keys[SDL_SCANCODE_DOWN]) g.right.vy =  PADDLE_SPEED;
-        g.right.y += g.right.vy * dt;
+        g.left.vy = 0.f;
+        if (keys[SDL_SCANCODE_UP])   g.left.vy = -PADDLE_SPEED;
+        if (keys[SDL_SCANCODE_DOWN]) g.left.vy =  PADDLE_SPEED;
+        g.left.y += g.left.vy * dt;
     } else {
         g.updateAI(dt);
-        g.right.y += g.right.vy * dt;
+        g.left.y += g.left.vy * dt;
     }
-    clampPaddle(g.right);
+    clampPaddle(g.left);
 
     if (g.countDown > 0.f) return; // don't move ball yet
 
     // ── ball movement ──
     Ball& b = g.ball;
 
-    // trail
     b.trailX[b.trailHead] = b.x;
     b.trailY[b.trailHead] = b.y;
     b.trailHead = (b.trailHead + 1) % 8;
@@ -721,20 +711,17 @@ static void update(Game& g, float dt) {
 
         if (!xOver || !yOver) return false;
 
-        // spin: hit position relative to paddle centre
         float relY = (b.y - (paddle.y + PADDLE_H/2.f)) / (PADDLE_H/2.f);
-        float bounceAngle = relY * 1.1f;   // max ~63°
+        float bounceAngle = relY * 1.1f;
 
         b.speed = std::min(b.speed + SPEED_INC, BALL_MAX_SP);
         b.vx = -ballDir * b.speed * std::cos(bounceAngle);
         b.vy =            b.speed * std::sin(bounceAngle);
 
-        // clamp to prevent almost-horizontal balls
         float minVy = b.speed * 0.15f;
         if (std::abs(b.vy) < minVy)
             b.vy = (b.vy >= 0 ? 1 : -1) * minVy;
 
-        // push ball out of paddle
         if (ballDir > 0)
             b.x = pLeft - BALL_SIZE/2;
         else
@@ -743,30 +730,34 @@ static void update(Game& g, float dt) {
         return true;
     };
 
+    // Ball moving left  → may hit LEFT paddle  (AI/P2)
     if (b.vx < 0 && paddleHit(g.left,  -1.f)) {
         playBeep(520.0, 0.05, 0.3);
-        spawnParticles(g.left.x + PADDLE_W, b.y, C_P1);
+        spawnParticles(g.left.x + PADDLE_W, b.y, C_P2);
     }
+    // Ball moving right → may hit RIGHT paddle (P1)
     if (b.vx > 0 && paddleHit(g.right,  1.f)) {
         playBeep(460.0, 0.05, 0.3);
-        spawnParticles(g.right.x, b.y, C_P2);
+        spawnParticles(g.right.x, b.y, C_P1);
     }
 
     // ── scoring ──
+    // Ball exits LEFT  → AI/P2 missed → Player 1 (right) scores
     if (b.x < 0) {
         g.right.score++;
-        g.lastScorer = 2;
-        playBeep(180.0, 0.25, 0.5);
-        if (g.right.score >= WIN_SCORE) { g.state = GameState::GAME_OVER; return; }
-        resetBallInto(b, 2);
-        g.countDown = 1.5f;
-    }
-    if (b.x > WIN_W) {
-        g.left.score++;
         g.lastScorer = 1;
         playBeep(180.0, 0.25, 0.5);
+        if (g.right.score >= WIN_SCORE) { g.state = GameState::GAME_OVER; return; }
+        resetBallInto(b, 1);   // serve toward right (player)
+        g.countDown = 1.5f;
+    }
+    // Ball exits RIGHT → P1 missed → AI/P2 (left) scores
+    if (b.x > WIN_W) {
+        g.left.score++;
+        g.lastScorer = 2;
+        playBeep(180.0, 0.25, 0.5);
         if (g.left.score >= WIN_SCORE) { g.state = GameState::GAME_OVER; return; }
-        resetBallInto(b, 1);
+        resetBallInto(b, 2);   // serve toward left (AI)
         g.countDown = 1.5f;
     }
 }
@@ -857,7 +848,6 @@ int main(int /*argc*/, char** /*argv*/) {
         update(g, dt);
         render(ren, g);
 
-        // Frame cap (vsync handles most of this)
         Uint32 elapsed = SDL_GetTicks() - now;
         if (elapsed < (Uint32)FRAME_MS)
             SDL_Delay((Uint32)FRAME_MS - elapsed);
