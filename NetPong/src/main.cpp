@@ -506,7 +506,7 @@ static void drawMenu(SDL_Renderer* ren, const Game& g) {
         drawText(ren, entries[i].label, WIN_W/2, y + 4, 2, col, true);
     }
 
-    drawText(ren, "1P: W/S or ARROWS   2P: left = W/S   right = ARROWS", WIN_W/2, WIN_H-40, 2, C_DIM, true);
+    drawText(ren, "1P: W/S or ARROWS   2P: Left = W/S   Right = ARROWS", WIN_W/2, WIN_H-40, 2, C_DIM, true);
 }
 
 // ─────────────────────────────────────────────
