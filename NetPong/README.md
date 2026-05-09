@@ -1,4 +1,4 @@
-# 🏓 PONG — C++ / SDL2
+# 🏓 NetPong — C++ / SDL2
 
 A feature-rich Pong clone written in modern C++17, rendered with SDL2.
 No external assets are required — fonts are drawn with a built-in 5×7 bitmap
@@ -8,9 +8,9 @@ renderer and audio is generated procedurally in real time.
 
 ## Game Preview
 
-![alt text](image.png)
+![alt text](NetPong/image.png)
 
-![alt text](image-1.png)
+![alt text](NetPong/image-1.png)
 
 ---
 
@@ -43,11 +43,22 @@ renderer and audio is generated procedurally in real time.
 | `Esc` | Quit |
 
 ### In-game
-| Key | Player 1 (Right) | Player 2 / AI (Left) |
+
+#### 1-Player
+| Key | Action |
+|---|---|
+| `W` / `↑` | Move Player 1 up |
+| `S` / `↓` | Move Player 1 down |
+
+AI controls the left paddle automatically.
+
+#### 2-Player
+| Key | Player 2 (Left) | Player 1 (Right) |
 |---|---|---|
 | Move up | `W` | `↑` |
 | Move down | `S` | `↓` |
 
+### General
 | Key | Action |
 |---|---|
 | `Esc` / `P` | Pause / Resume |
